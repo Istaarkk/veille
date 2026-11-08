@@ -3,28 +3,29 @@
 
 import argparse
 import locale
-import smtplib
 import sys
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
 from pathlib import Path
 
-from config import SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD, EMAIL_TO
+import requests
+
+from config import RESEND_API_KEY, EMAIL_TO
 from scraper import scraper_flux
 from email_builder import construire_email
 
 
 def envoyer_email(html: str, destinataire: str) -> None:
-    msg = MIMEMultipart("alternative")
-    msg["Subject"] = "Veille Actu — Votre digest du jour"
-    msg["From"] = SMTP_USER
-    msg["To"] = destinataire
-    msg.attach(MIMEText(html, "html", "utf-8"))
-
-    with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as serveur:
-        serveur.starttls()
-        serveur.login(SMTP_USER, SMTP_PASSWORD)
-        serveur.sendmail(SMTP_USER, destinataire, msg.as_string())
+    resp = requests.post(
+        "https://api.resend.com/emails",
+        headers={"Authorization": f"Bearer {RESEND_API_KEY}"},
+        json={
+            "from": "Veille Actu <onboarding@resend.dev>",
+            "to": [destinataire],
+            "subject": "Veille Actu — Votre digest du jour",
+            "html": html,
+        },
+        timeout=30,
+    )
+    resp.raise_for_status()
 
 
 def main() -> None:
@@ -64,8 +65,8 @@ def main() -> None:
         chemin.write_text(html, encoding="utf-8")
         print(f"Preview sauvegardée : {chemin.resolve()}")
     else:
-        if not all([SMTP_USER, SMTP_PASSWORD, EMAIL_TO]):
-            print("Erreur : configurez SMTP_USER, SMTP_PASSWORD et EMAIL_TO dans .env")
+        if not all([RESEND_API_KEY, EMAIL_TO]):
+            print("Erreur : configurez RESEND_API_KEY et EMAIL_TO dans .env")
             sys.exit(1)
         print(f"Envoi à {EMAIL_TO}…")
         envoyer_email(html, EMAIL_TO)
