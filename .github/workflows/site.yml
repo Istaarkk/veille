@@ -2,8 +2,9 @@ name: Veille — génération du site
 
 on:
   schedule:
-    # ~7h, 13h et 19h heure de Paris
-    - cron: '0 5,11,17 * * *'
+    # Toutes les heures de ~6h à ~23h (heure de Paris). Le fil est rafraîchi à chaque fois ;
+    # le brief IA n'est régénéré que s'il a plus de BRIEF_MAX_AGE_HEURES (5 h par défaut).
+    - cron: '7 4-21 * * *'
   workflow_dispatch:
 
 permissions:
@@ -28,10 +29,16 @@ jobs:
 
       - run: pip install -r requirements.txt
 
+      - name: Récupérer le brief déjà publié
+        run: |
+          mkdir -p public
+          curl -fsSL --max-time 20 "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/brief.json" -o public/brief.json || rm -f public/brief.json
+
       - name: Générer le site
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-        run: python main.py --sortie public
+        # Un lancement manuel force un brief neuf.
+        run: python main.py --sortie public ${{ github.event_name == 'workflow_dispatch' && '--forcer-brief' || '' }}
 
       - uses: actions/upload-pages-artifact@v3
         with:

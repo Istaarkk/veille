@@ -9,6 +9,8 @@ MODELE = os.getenv("VEILLE_MODELE", "claude-opus-5-5")
 
 FENETRE_HEURES = int(os.getenv("FENETRE_HEURES", "36"))
 MAX_PAR_SOURCE = int(os.getenv("MAX_PAR_SOURCE", "15"))
+# Le fil est rafraîchi à chaque exécution ; le brief IA n'est régénéré qu'au-delà de cet âge.
+BRIEF_MAX_AGE_HEURES = float(os.getenv("BRIEF_MAX_AGE_HEURES", "5"))
 
 # type : "presse" (actu chaude) ou "analyse" (think tanks, revues)
 SOURCES = [
