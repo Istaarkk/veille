@@ -1,76 +1,34 @@
 #!/usr/bin/env python3
-"""Veille Actu — Digest quotidien des actualités Le Monde."""
+"""Veille — site de veille géopolitique multi-sources avec brief IA."""
 
 import argparse
-import locale
 import sys
 from pathlib import Path
 
-import requests
-
-from config import RESEND_API_KEY, EMAIL_TO
-from scraper import scraper_flux
-from email_builder import construire_email
-
-
-def envoyer_email(html: str, destinataire: str) -> None:
-    resp = requests.post(
-        "https://api.resend.com/emails",
-        headers={"Authorization": f"Bearer {RESEND_API_KEY}"},
-        json={
-            "from": "Veille Actu <onboarding@resend.dev>",
-            "to": [destinataire],
-            "subject": "Veille Actu — Votre digest du jour",
-            "html": html,
-        },
-        timeout=30,
-    )
-    resp.raise_for_status()
+from analyse import generer_brief
+from scraper import scraper_sources
+from site_builder import construire_site
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Veille Actu — Digest quotidien")
-    parser.add_argument(
-        "--preview",
-        action="store_true",
-        help="Génère le HTML dans un fichier au lieu d'envoyer l'email",
-    )
-    parser.add_argument(
-        "--output", "-o",
-        default="preview.html",
-        help="Fichier de sortie en mode preview (défaut: preview.html)",
-    )
+    parser = argparse.ArgumentParser(description="Génère le site de veille")
+    parser.add_argument("--sortie", "-o", default="public", help="Dossier de sortie (défaut : public)")
+    parser.add_argument("--sans-ia", action="store_true", help="Ne pas générer le brief IA")
     args = parser.parse_args()
 
-    try:
-        locale.setlocale(locale.LC_TIME, "fr_FR.UTF-8")
-    except locale.Error:
-        pass
-
-    print("Récupération des flux RSS…")
-    sections = scraper_flux()
-
-    if not sections:
-        print("Aucun article récupéré. Vérifiez votre connexion.")
+    print("Récupération des flux…")
+    articles = scraper_sources()
+    if not articles:
+        print("Aucun article récupéré.")
         sys.exit(1)
+    print(f"{len(articles)} articles retenus.")
 
-    total = sum(len(arts) for arts in sections.values())
-    print(f"{total} articles récupérés dans {len(sections)} catégories.")
+    brief = None if args.sans_ia else generer_brief(articles)
+    if brief:
+        print(f"Brief : {len(brief.sujets)} sujets.")
 
-    print("Construction de l'email…")
-    html = construire_email(sections)
-
-    if args.preview:
-        chemin = Path(args.output)
-        chemin.write_text(html, encoding="utf-8")
-        print(f"Preview sauvegardée : {chemin.resolve()}")
-    else:
-        if not all([RESEND_API_KEY, EMAIL_TO]):
-            print("Erreur : configurez RESEND_API_KEY et EMAIL_TO dans .env")
-            sys.exit(1)
-        print(f"Envoi à {EMAIL_TO}…")
-        envoyer_email(html, EMAIL_TO)
-        print("Email envoyé.")
+    chemin = construire_site(articles, brief, Path(args.sortie))
+    print(f"Site généré : {chemin.resolve()}")
 
 
 if __name__ == "__main__":
