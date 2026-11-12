@@ -40,6 +40,9 @@ jobs:
       - name: Générer le site
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          # Réglages facultatifs : Settings → Secrets and variables → Actions → onglet Variables
+          VEILLE_MODELE: ${{ vars.VEILLE_MODELE }}
+          BRIEF_MAX_AGE_HEURES: ${{ vars.BRIEF_MAX_AGE_HEURES }}
         # Un lancement manuel force un brief neuf.
         run: python main.py --sortie public ${{ github.event_name == 'workflow_dispatch' && '--forcer-brief' || '' }}
 
