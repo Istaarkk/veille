@@ -5,6 +5,9 @@ on:
     # Toutes les heures de ~6h à ~23h (heure de Paris). Le fil est rafraîchi à chaque fois ;
     # le brief IA n'est régénéré que s'il a plus de BRIEF_MAX_AGE_HEURES (5 h par défaut).
     - cron: '7 4-21 * * *'
+  # Redéploie dès qu'on pousse sur main (le brief récent est réutilisé, pas d'appel IA en plus).
+  push:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
