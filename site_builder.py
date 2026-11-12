@@ -82,12 +82,9 @@ main { max-width: 680px; margin: 0 auto; padding: 14px 16px 0; }
 /* ---------- Brief ---------- */
 .edition { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 12px; color: var(--muted);
   text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; }
-.edition .vieux { color: var(--warn); }
 .lien-btn { background: none; border: 0; color: var(--muted); font-size: 12px; font-weight: 600; text-transform: uppercase;
   letter-spacing: 0.05em; padding: 8px 0 8px 12px; }
-.accroche { background: var(--ink); color: var(--bg); border-radius: 18px; padding: 14px 16px; margin: 6px 0 14px;
-  font: 500 18px/1.4 var(--serif); text-wrap: pretty; }
-.accroche::before { content: "L'essentiel"; display: block; font: 800 10.5px/1.6 var(--sans); letter-spacing: 0.1em; text-transform: uppercase; opacity: 0.65; }
+.explication { font-size: 14px; color: var(--muted); margin: 2px 0 12px; }
 
 .sujets { display: grid; gap: 12px; }
 .sujet { overflow: hidden; }
@@ -117,10 +114,8 @@ main { max-width: 680px; margin: 0 auto; padding: 14px 16px 0; }
 .sources a b { display: block; font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
 
 .signaux { margin-top: 14px; padding: 14px 16px; }
-.signaux .sous-titre { margin-bottom: 4px; }
-.signaux li { list-style: none; font-size: 15px; line-height: 1.45; padding: 8px 0 8px 14px; position: relative; }
-.signaux li + li { border-top: 1px solid var(--line); }
-.signaux li::before { content: ""; position: absolute; left: 0; top: 17px; width: 6px; height: 2px; background: var(--accent); }
+.signaux .sous-titre { margin-bottom: 8px; }
+.signaux .sources { margin-top: 0; }
 
 /* ---------- Fil ---------- */
 .recherche { width: 100%; font: inherit; font-size: 16px; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--line);
@@ -162,53 +157,51 @@ main { max-width: 680px; margin: 0 auto; padding: 14px 16px 0; }
       <div class="frais" title="Dernière mise à jour du fil"></div>
     </div>
     <nav class="tabs" role="tablist">
-      <button class="tab" role="tab" data-vue="brief" aria-selected="true">Brief</button>
+      <button class="tab" role="tab" data-vue="une" aria-selected="true">À la une</button>
       <button class="tab" role="tab" data-vue="fil" aria-selected="false">Fil <span class="pastille"></span></button>
     </nav>
   </div>
 </header>
 
 <main>
-<section id="brief" class="vue on">
-{% if brief %}
+<section id="une" class="vue on">
+{% if une %}
   <div class="edition">
-    <span>{{ date_longue }} · <span class="age-brief" data-ts="{{ brief.genere }}">brief de {{ heure_brief }}</span></span>
+    <span>{{ date_longue }} · {{ une.sujets|length }} sujets</span>
     <button class="lien-btn" id="deplier">Tout déplier</button>
   </div>
-  <p class="accroche">{{ brief.accroche }}</p>
+  <p class="explication">Les événements couverts par le plus de rédactions ces dernières heures.</p>
   <div class="sujets">
-  {% for s in brief.sujets %}
+  {% for s in une.sujets %}
   <details class="sujet carte" data-ts="{{ s.ts }}">
     <summary>
       <div class="entete"><span class="rang">{{ loop.index }}</span><span class="tag">{{ s.region }}</span><span class="badge">Nouveau</span></div>
       <h2>{{ s.titre }}</h2>
-      <p class="tldr bref">{{ s.en_bref }}</p>
+      {% set court = s.en_bref|tldr %}{% if court %}<p class="tldr bref">{{ court }}</p>{% endif %}
       <div class="pied">
-        <span>{{ s.sources|length }} source{{ 's' if s.sources|length > 1 }}</span>
+        <span class="couverture">{{ s.sources|length }} sources</span>
         <span class="basculer"><span class="chevron" aria-hidden="true"></span></span>
       </div>
     </summary>
     <div class="detail">
-      {% if s.points %}<div class="sous-titre">Points clés</div>
-      <ul class="points">{% for p in s.points %}<li>{{ p }}</li>{% endfor %}</ul>{% endif %}
-      {% if s.a_surveiller %}<p class="surveiller"><b>À surveiller</b>{{ s.a_surveiller }}</p>{% endif %}
-      {% if s.sources %}
+      <div class="sous-titre">Ce qu'en disent les médias</div>
       <div class="sources">
         {% for a in s.sources %}<a href="{{ a.lien|lien_sur }}" target="_blank" rel="noopener"><b>{{ a.source }}</b>{{ a.titre }}</a>{% endfor %}
       </div>
-      {% endif %}
     </div>
   </details>
   {% endfor %}
   </div>
-  {% if brief.signaux_faibles %}
+  {% if une.analyses %}
   <div class="signaux carte">
-    <div class="sous-titre">Signaux faibles</div>
-    <ul>{% for sig in brief.signaux_faibles %}<li>{{ sig }}</li>{% endfor %}</ul>
+    <div class="sous-titre">Analyses récentes</div>
+    <div class="sources">
+      {% for a in une.analyses %}<a href="{{ a.lien|lien_sur }}" target="_blank" rel="noopener"><b>{{ a.source }}</b>{{ a.titre }}</a>{% endfor %}
+    </div>
   </div>
   {% endif %}
 {% else %}
-  <p class="vide">Pas de brief IA pour cette édition.<br>Consultez le fil.</p>
+  <p class="vide">Aucun sujet couvert par plusieurs rédactions pour l'instant.<br>Consultez le fil.</p>
 {% endif %}
 </section>
 
@@ -278,8 +271,6 @@ main { max-width: 680px; margin: 0 auto; padding: 14px 16px 0; }
   const frais = $('.frais');
   frais.textContent = `il y a ${age(genere)}`;
   frais.classList.toggle('vieux', now - genere > 3 * 3600);
-  const ageBrief = $('.age-brief');
-  if (ageBrief && now - +ageBrief.dataset.ts > 8 * 3600) ageBrief.classList.add('vieux');
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) ecrire('veille-vu', Math.floor(Date.now() / 1000));
     else if (Date.now() / 1000 - now > 20 * 60) location.reload();
@@ -396,7 +387,7 @@ JOURS = ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"
 MOIS = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"]
 
 
-def construire_site(articles: list[Article], brief: dict | None, dossier: Path) -> Path:
+def construire_site(articles: list[Article], une: dict | None, dossier: Path) -> Path:
     env = Environment(autoescape=True)
     env.filters["lien_sur"] = _lien_sur
     env.filters["tldr"] = _tldr
@@ -404,11 +395,10 @@ def construire_site(articles: list[Article], brief: dict | None, dossier: Path) 
     maintenant = datetime.now(PARIS)
     html = env.from_string(TEMPLATE).render(
         articles=articles,
-        brief=brief,
+        une=une,
         regions=list(REGIONS),
         genere=int(maintenant.timestamp()),
         date_longue=f"{JOURS[maintenant.weekday()]} {maintenant.day} {MOIS[maintenant.month - 1]}",
-        heure_brief=datetime.fromtimestamp(brief["genere"], PARIS).strftime("%H:%M") if brief else "",
     )
     dossier.mkdir(parents=True, exist_ok=True)
     (dossier / "index.html").write_text(html, encoding="utf-8")

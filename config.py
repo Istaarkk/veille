@@ -4,14 +4,8 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
-# `or` : une variable définie mais vide (ex. variable GitHub non renseignée) retombe sur la valeur par défaut.
-MODELE = os.getenv("VEILLE_MODELE") or "claude-opus-5-5"
-
 FENETRE_HEURES = int(os.getenv("FENETRE_HEURES", "36"))
 MAX_PAR_SOURCE = int(os.getenv("MAX_PAR_SOURCE", "15"))
-# Le fil est rafraîchi à chaque exécution ; le brief IA n'est régénéré qu'au-delà de cet âge.
-BRIEF_MAX_AGE_HEURES = float(os.getenv("BRIEF_MAX_AGE_HEURES") or "5")
 
 # type : "presse" (actu chaude) ou "analyse" (think tanks, revues)
 SOURCES = [

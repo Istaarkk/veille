@@ -9,16 +9,16 @@ from site_builder import _lien_sur, construire_site
 
 
 @pytest.fixture
-def page(tmp_path, articles, brief):
-    def construire(arts=articles, b=brief):
+def page(tmp_path, articles, une):
+    def construire(arts=articles, b=une):
         return BeautifulSoup(construire_site(arts, b, tmp_path).read_text(encoding="utf-8"), "html.parser")
     return construire
 
 
 # --- fichiers produits ---
 
-def test_fichiers_generes(tmp_path, articles, brief):
-    chemin = construire_site(articles, brief, tmp_path / "neuf" / "dossier")
+def test_fichiers_generes(tmp_path, articles, une):
+    chemin = construire_site(articles, une, tmp_path / "neuf" / "dossier")
     assert chemin.name == "index.html" and chemin.exists()
     assert (chemin.parent / "icon.svg").read_text().startswith("<svg")
     manifest = json.loads((chemin.parent / "manifest.webmanifest").read_text())
@@ -37,31 +37,31 @@ def test_meta_mobile(page):
     assert p.html["lang"] == "fr"
 
 
-# --- brief ---
+# --- à la une ---
 
-def test_brief_affiche(page, brief):
+def test_une_affichee(page, une):
     p = page()
-    assert p.select_one(".accroche").text == brief["accroche"]
+    assert p.select_one('.tab[data-vue="une"]').text == "À la une"
     sujets = p.select("details.sujet")
     assert len(sujets) == 1
     s = sujets[0]
     assert s.select_one("summary h2").text == "Frappes massives sur Kiev"
-    assert s.select_one("summary .bref").text == "La Russie a tiré 400 drones dans la nuit."
+    assert s.select_one("summary .tldr").text == "La Russie a tiré 400 drones dans la nuit."
     assert s.select_one("summary .tag").text == "Russie / Ukraine"
-    assert [li.text for li in s.select(".points li")] == brief["sujets"][0]["points"]
-    assert "Réunion de Ramstein" in s.select_one(".surveiller").text
-    assert [li.text for li in p.select(".signaux li")] == brief["signaux_faibles"]
+    assert s.select_one(".couverture").text == "2 sources"
+    assert [a.select_one("b").text for a in s.select(".detail .sources a")] == ["Le Monde", "BBC World"]
+    assert [a.select_one("b").text for a in p.select(".signaux .sources a")] == ["IRIS"]
 
 
-def test_sujets_replies_par_defaut_et_resume_visible_sans_deplier(page):
+def test_sujets_replies_par_defaut_et_tldr_visible_sans_deplier(page):
     s = page().select_one("details.sujet")
     assert not s.has_attr("open")
-    assert s.select_one("summary .bref") and not s.select_one("summary .points")
+    assert s.select_one("summary .tldr") and not s.select_one("summary .sources")
 
 
-def test_sujets_numerotes_dans_l_ordre(page, brief):
-    brief["sujets"] = [dict(brief["sujets"][0], titre=f"Sujet {i}") for i in range(1, 4)]
-    p = page(b=brief)
+def test_sujets_numerotes_dans_l_ordre(page, une):
+    une["sujets"] = [dict(une["sujets"][0], titre=f"Sujet {i}") for i in range(1, 4)]
+    p = page(b=une)
     assert [r.text for r in p.select(".rang")] == ["1", "2", "3"]
     assert [h.text for h in p.select(".sujet h2")] == ["Sujet 1", "Sujet 2", "Sujet 3"]
 
@@ -72,25 +72,29 @@ def test_sources_du_sujet_cliquables(page):
     assert all(a["target"] == "_blank" and "noopener" in a["rel"] for a in liens)
 
 
-def test_sujet_porte_son_horodatage(page, brief):
-    assert page().select_one("details.sujet")["data-ts"] == str(brief["sujets"][0]["ts"])
+def test_sujet_porte_son_horodatage(page, une):
+    assert page().select_one("details.sujet")["data-ts"] == str(une["sujets"][0]["ts"])
 
 
-def test_sujet_sans_source_ni_a_surveiller(page, brief):
-    brief["sujets"][0].update(sources=[], a_surveiller="")
-    s = page(b=brief).select_one("details.sujet")
-    assert not s.select_one(".sources") and not s.select_one(".surveiller")
+def test_tldr_du_sujet_raccourci(page, une):
+    une["sujets"][0]["en_bref"] = "Première phrase. " + "Détail sans fin " * 30 + "."
+    assert page(b=une).select_one(".sujet .tldr").text == "Première phrase."
 
 
-def test_sans_signaux_faibles(page, brief):
-    brief["signaux_faibles"] = []
-    assert not page(b=brief).select_one(".signaux")
+def test_sujet_sans_resume(page, une):
+    une["sujets"][0]["en_bref"] = ""
+    assert not page(b=une).select_one(".sujet .tldr")
 
 
-def test_sans_brief(page):
+def test_sans_analyses(page, une):
+    une["analyses"] = []
+    assert not page(b=une).select_one(".signaux")
+
+
+def test_sans_une(page):
     p = page(b=None)
     assert not p.select("details.sujet")
-    assert "Pas de brief" in p.select_one("#brief .vide").text
+    assert "Aucun sujet" in p.select_one("#une .vide").text
     assert len(p.select(".art")) == 3
 
 
@@ -134,13 +138,6 @@ def test_article_sans_resume(page, articles):
 
 
 # --- cartes ---
-
-def test_carte_de_sujet_titre_tldr_et_pied(page):
-    s = page().select_one("details.sujet.carte summary")
-    assert s.select_one(".rang").text == "1"
-    assert s.select_one(".tldr").text == "La Russie a tiré 400 drones dans la nuit."
-    assert s.select_one(".pied").text.split()[:2] == ["2", "sources"]
-
 
 def test_carte_d_article(page):
     c = page().select("#fil .art.carte")[2]
@@ -202,14 +199,14 @@ def test_tldr_premiere_phrase_trop_longue_coupee_sur_un_mot():
 
 # --- sécurité ---
 
-def test_contenu_des_flux_echappe(page, articles, brief):
+def test_contenu_des_flux_echappe(page, articles, une):
     articles[0].titre = '<img src=x onerror=alert(1)>'
     articles[0].resume = '"><script>alert(2)</script>'
-    brief["sujets"][0]["titre"] = "<script>alert(3)</script>"
-    brief["accroche"] = "<b>gras</b>"
-    p = page(arts=articles, b=brief)
-    assert not p.select("img") and len(p.select("script")) == 1
-    assert p.select_one(".accroche").text == "<b>gras</b>"
+    une["sujets"][0]["titre"] = "<script>alert(3)</script>"
+    une["sujets"][0]["en_bref"] = "<b>gras</b>"
+    p = page(arts=articles, b=une)
+    assert not p.select("img") and not p.select(".tldr b") and len(p.select("script")) == 1
+    assert p.select_one(".sujet .tldr").text == "<b>gras</b>"
     assert p.select_one(".art h3").text == "<img src=x onerror=alert(1)>"
 
 
@@ -225,10 +222,11 @@ def test_lien_sur(url, attendu):
     assert _lien_sur(url) == attendu
 
 
-def test_lien_dangereux_neutralise_dans_la_page(page, articles, brief):
+def test_lien_dangereux_neutralise_dans_la_page(page, articles, une):
     articles[0].lien = "javascript:alert(1)"
-    brief["sujets"][0]["sources"][0]["lien"] = "javascript:alert(1)"
-    p = page(arts=articles, b=brief)
+    une["sujets"][0]["sources"][0]["lien"] = "javascript:alert(1)"
+    une["analyses"][0]["lien"] = "javascript:alert(1)"
+    p = page(arts=articles, b=une)
     assert "javascript:" not in str(p.select("a"))
 
 
@@ -239,13 +237,9 @@ def test_horodatage_de_generation(page):
     assert abs(int(page().body["data-genere"]) - time.time()) < 5
 
 
-def test_date_et_heure_du_brief(page, brief):
-    from datetime import datetime
-    from zoneinfo import ZoneInfo
+def test_date_de_l_edition(page):
     edition = page().select_one(".edition").text
-    attendu = datetime.fromtimestamp(brief["genere"], ZoneInfo("Europe/Paris")).strftime("%H:%M")
-    assert f"brief de {attendu}" in edition
-    assert re.search(r"(lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche) \d{1,2} \w+", edition)
+    assert re.search(r"(lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche) \d{1,2} \w+ · 1 sujets", edition)
 
 
 def test_script_reference_des_elements_existants(page):

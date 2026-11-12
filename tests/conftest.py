@@ -24,18 +24,15 @@ def articles() -> list[Article]:
 
 
 @pytest.fixture
-def brief(articles) -> dict:
+def une(articles) -> dict:
     return {
-        "genere": int(time.time()) - 3600,
-        "accroche": "Moscou intensifie ses frappes.",
+        "genere": int(time.time()),
         "sujets": [{
             "titre": "Frappes massives sur Kiev",
             "region": "Russie / Ukraine",
             "en_bref": "La Russie a tiré 400 drones dans la nuit.",
-            "points": ["400 drones tirés.", "Coupures dans huit régions."],
-            "a_surveiller": "Réunion de Ramstein jeudi.",
             "sources": [{"source": a.source, "titre": a.titre, "lien": a.lien} for a in articles[:2]],
             "ts": articles[0].timestamp,
         }],
-        "signaux_faibles": ["Le Kazakhstan rejoint les accords d'Abraham."],
+        "analyses": [{"source": "IRIS", "titre": "Le 49.3 en débat", "lien": "https://exemple.fr/a2"}],
     }
