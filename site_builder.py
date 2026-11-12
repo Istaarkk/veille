@@ -1,4 +1,6 @@
 import json
+import re
+import zlib
 from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -29,14 +31,16 @@ TEMPLATE = """\
 <style>
 :root {
   --bg: #f6f4ee; --card: #fffefb; --ink: #15161a; --soft: #3d3f46; --muted: #73757d; --line: #e2dfd5;
-  --accent: #c2271d; --accent-bg: #fbe9e6; --chip: #eae7dd; --ok: #2e8b57; --warn: #b7791f; --def: #f7efd9;
+  --accent: #c2271d; --accent-bg: #fbe9e6; --chip: #efece3; --ok: #2e8b57; --warn: #b7791f; --def: #f7efd9;
+  --tldr: #f6f1e4; --ombre: 0 1px 2px rgb(30 25 10 / .05), 0 6px 18px rgb(30 25 10 / .05);
   --serif: ui-serif, "New York", "Iowan Old Style", Georgia, "Noto Serif", serif;
   --sans: -apple-system, system-ui, "Segoe UI", Roboto, sans-serif;
 }
 @media (prefers-color-scheme: dark) {
   :root {
     --bg: #0f1013; --card: #17191d; --ink: #edece8; --soft: #c6c6c2; --muted: #8e9098; --line: #272a30;
-    --accent: #ff6f61; --accent-bg: #2b1715; --chip: #22252b; --ok: #4cc38a; --warn: #e0a84a; --def: #27220f;
+    --accent: #ff6f61; --accent-bg: #2b1715; --chip: #23262c; --ok: #4cc38a; --warn: #e0a84a; --def: #27220f;
+    --tldr: #1f2227; --ombre: none;
   }
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -67,42 +71,56 @@ main { max-width: 680px; margin: 0 auto; padding: 14px 16px 0; }
 .vue { display: none; } .vue.on { display: block; }
 .vide { color: var(--muted); text-align: center; padding: 40px 0; }
 
+/* ---------- Cartes communes ---------- */
+.carte { background: var(--card); border: 1px solid var(--line); border-radius: 18px; box-shadow: var(--ombre); }
+.tldr { margin-top: 10px; background: var(--tldr); border-radius: 12px; padding: 9px 12px; font-size: 15px; line-height: 1.45; text-wrap: pretty; }
+.tldr::before { content: "TL;DR"; display: block; font-size: 10.5px; font-weight: 800; letter-spacing: 0.1em; color: var(--accent); margin-bottom: 1px; }
+.tag { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+.badge { font-size: 11px; font-weight: 700; border-radius: 6px; padding: 1px 7px; background: var(--accent-bg); color: var(--accent); }
+.pied { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 10px; font-size: 13px; color: var(--muted); font-weight: 600; }
+
 /* ---------- Brief ---------- */
 .edition { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 12px; color: var(--muted);
   text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; }
 .edition .vieux { color: var(--warn); }
 .lien-btn { background: none; border: 0; color: var(--muted); font-size: 12px; font-weight: 600; text-transform: uppercase;
   letter-spacing: 0.05em; padding: 8px 0 8px 12px; }
-.accroche { font: 500 19px/1.4 var(--serif); letter-spacing: -0.005em; margin: 6px 0 14px; text-wrap: pretty; }
+.accroche { background: var(--ink); color: var(--bg); border-radius: 18px; padding: 14px 16px; margin: 6px 0 14px;
+  font: 500 18px/1.4 var(--serif); text-wrap: pretty; }
+.accroche::before { content: "L'essentiel"; display: block; font: 800 10.5px/1.6 var(--sans); letter-spacing: 0.1em; text-transform: uppercase; opacity: 0.65; }
 
-.sujets { background: var(--card); border: 1px solid var(--line); border-radius: 16px; overflow: hidden; }
-.sujet + .sujet { border-top: 1px solid var(--line); }
-.sujet summary { list-style: none; display: grid; grid-template-columns: 26px 1fr 14px; column-gap: 8px; padding: 14px 14px 14px 12px; cursor: pointer; }
+.sujets { display: grid; gap: 12px; }
+.sujet { overflow: hidden; }
+.sujet summary { list-style: none; display: block; padding: 14px 16px 12px; cursor: pointer; }
 .sujet summary::-webkit-details-marker { display: none; }
-.rang { font: 700 20px/1.2 var(--serif); color: var(--muted); font-variant-numeric: tabular-nums; text-align: center; padding-top: 14px; }
-.sujet:nth-child(-n+3) .rang { color: var(--accent); }
-.kicker { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted);
-  display: flex; align-items: center; gap: 6px; }
-.neuf { display: none; background: var(--accent-bg); color: var(--accent); border-radius: 4px; padding: 0 5px; letter-spacing: 0.04em; }
-.sujet.neuf-oui .neuf { display: inline; }
-.sujet h2 { font: 700 18px/1.25 var(--serif); letter-spacing: -0.01em; margin: 2px 0 3px; text-wrap: balance; }
-.bref { font-size: 15px; line-height: 1.45; color: var(--soft); text-wrap: pretty; }
-.chevron { align-self: center; width: 9px; height: 9px; border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted);
-  transform: rotate(45deg); transition: transform .15s; opacity: .7; }
-.sujet[open] .chevron { transform: rotate(-135deg); }
-.detail { padding: 0 14px 16px 46px; }
+.entete { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; }
+.rang { flex: none; width: 24px; height: 24px; border-radius: 8px; background: var(--chip); color: var(--soft);
+  font: 700 13px/24px var(--sans); text-align: center; font-variant-numeric: tabular-nums; }
+.sujet:nth-child(-n+3) .rang { background: var(--accent); color: #fff; }
+.sujet .badge { display: none; margin-left: auto; }
+.sujet.neuf-oui .badge { display: inline-block; }
+.sujet h2 { font: 700 19px/1.25 var(--serif); letter-spacing: -0.01em; text-wrap: balance; }
+.basculer { display: flex; align-items: center; gap: 6px; color: var(--ink); }
+.basculer::before { content: "Détails"; }
+.sujet[open] .basculer::before { content: "Réduire"; }
+.chevron { width: 7px; height: 7px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor;
+  transform: rotate(45deg) translateY(-2px); transition: transform .15s; }
+.sujet[open] .chevron { transform: rotate(-135deg) translateY(-1px); }
+.detail { padding: 12px 16px 16px; border-top: 1px solid var(--line); }
+.sous-titre { font-size: 11px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin-bottom: 2px; }
 .points li { list-style: none; position: relative; font-size: 15px; line-height: 1.45; padding: 4px 0 4px 14px; }
 .points li::before { content: ""; position: absolute; left: 0; top: 13px; width: 5px; height: 5px; border-radius: 50%; background: var(--accent); }
-.surveiller { margin-top: 10px; background: var(--accent-bg); border-radius: 10px; padding: 9px 12px; font-size: 14px; line-height: 1.45; }
+.surveiller { margin-top: 10px; border-left: 3px solid var(--accent); padding: 2px 0 2px 10px; font-size: 14px; line-height: 1.45; }
 .surveiller b { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--accent); }
-.sources { margin-top: 10px; }
-.sources a { display: block; text-decoration: none; font-size: 14px; line-height: 1.35; padding: 9px 0; border-top: 1px solid var(--line); }
+.sources { margin-top: 12px; display: grid; gap: 6px; }
+.sources a { display: block; text-decoration: none; font-size: 14px; line-height: 1.35; padding: 8px 10px; border-radius: 10px; background: var(--chip); }
 .sources a b { display: block; font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
 
-.signaux { margin-top: 18px; }
-.titre-bloc { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted); margin-bottom: 4px; }
-.signaux li { list-style: none; font-size: 15px; line-height: 1.45; padding: 9px 0 9px 14px; border-top: 1px solid var(--line); position: relative; }
-.signaux li::before { content: ""; position: absolute; left: 0; top: 18px; width: 6px; height: 2px; background: var(--muted); }
+.signaux { margin-top: 14px; padding: 14px 16px; }
+.signaux .sous-titre { margin-bottom: 4px; }
+.signaux li { list-style: none; font-size: 15px; line-height: 1.45; padding: 8px 0 8px 14px; position: relative; }
+.signaux li + li { border-top: 1px solid var(--line); }
+.signaux li::before { content: ""; position: absolute; left: 0; top: 17px; width: 6px; height: 2px; background: var(--accent); }
 
 /* ---------- Fil ---------- */
 .recherche { width: 100%; font: inherit; font-size: 16px; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--line);
@@ -111,22 +129,28 @@ main { max-width: 680px; margin: 0 auto; padding: 14px 16px 0; }
 .filtres::-webkit-scrollbar { display: none; }
 .chip { flex: none; border: 0; background: var(--chip); border-radius: 999px; padding: 8px 14px; font-size: 13px; font-weight: 500; }
 .chip[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
-.compteur { font-size: 12px; color: var(--muted); padding: 2px 0 6px; font-variant-numeric: tabular-nums; }
-.art { padding: 11px 0 11px 12px; border-top: 1px solid var(--line); position: relative; cursor: pointer; }
-.art.neuf-oui::before { content: ""; position: absolute; left: 0; top: 17px; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
-.art .meta { font-size: 12px; color: var(--muted); display: flex; gap: 6px; flex-wrap: wrap; font-variant-numeric: tabular-nums; }
-.art .src { font-weight: 700; color: var(--soft); }
-.art .analyse { color: var(--accent); font-weight: 600; }
-.art h3 { font-size: 16px; font-weight: 600; line-height: 1.3; margin: 2px 0 0; text-wrap: pretty; }
+.compteur { font-size: 12px; color: var(--muted); padding: 2px 0 8px; font-variant-numeric: tabular-nums; }
+.liste { display: grid; gap: 10px; }
+.art { padding: 12px 14px; cursor: pointer; }
+.art .meta { display: flex; align-items: center; gap: 7px; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.ini { flex: none; width: 22px; height: 22px; border-radius: 7px; display: grid; place-items: center; color: #fff;
+  font-size: 11px; font-weight: 800; background: hsl(var(--h) 45% 42%); }
+.art .src { font-weight: 700; color: var(--soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.art .quand { margin-left: auto; white-space: nowrap; }
+.art .badge.nouveau { display: none; }
+.art.neuf-oui .badge.nouveau { display: inline-block; }
+.art h3 { font-size: 16.5px; font-weight: 650; line-height: 1.3; margin-top: 8px; text-wrap: pretty; }
 .art h3 a { text-decoration: none; }
-.art p { font-size: 14px; line-height: 1.45; color: var(--muted); margin-top: 3px; display: -webkit-box; -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical; overflow: hidden; }
-.art.ouvert p { -webkit-line-clamp: unset; color: var(--soft); }
-.compact .art:not(.ouvert) p { display: none; }
-.def { display: none; margin-top: 6px; background: var(--def); border-radius: 8px; padding: 6px 10px; font-size: 13px; }
-.art.ouvert .def { display: block; }
+.art .tldr { font-size: 14.5px; color: var(--soft); }
+.plus { display: none; margin-top: 8px; font-size: 14px; line-height: 1.45; color: var(--soft); }
+.art.ouvert .plus { display: block; }
+.def { margin-top: 6px; background: var(--def); border-radius: 8px; padding: 6px 10px; font-size: 13px; }
+.tags { display: flex; gap: 5px; flex-wrap: wrap; min-width: 0; }
+.tags span { font-size: 11px; font-weight: 600; background: var(--chip); color: var(--soft); border-radius: 6px; padding: 2px 7px; }
+.lire { flex: none; text-decoration: none; color: var(--accent); font-weight: 700; padding: 4px 0 4px 8px; }
+.compact .art:not(.ouvert) .tldr, .compact .art:not(.ouvert) .pied { display: none; }
 .deja { display: flex; align-items: center; gap: 10px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em;
-  color: var(--muted); padding: 10px 0; border-top: 1px solid var(--line); }
+  color: var(--muted); padding: 6px 0; }
 .deja::after { content: ""; flex: 1; height: 1px; background: var(--line); }
 </style>
 </head>
@@ -154,18 +178,19 @@ main { max-width: 680px; margin: 0 auto; padding: 14px 16px 0; }
   <p class="accroche">{{ brief.accroche }}</p>
   <div class="sujets">
   {% for s in brief.sujets %}
-  <details class="sujet" data-ts="{{ s.ts }}">
+  <details class="sujet carte" data-ts="{{ s.ts }}">
     <summary>
-      <span class="rang">{{ loop.index }}</span>
-      <span>
-        <span class="kicker">{{ s.region }}<span class="neuf">Nouveau</span></span>
-        <h2>{{ s.titre }}</h2>
-        <p class="bref">{{ s.en_bref }}</p>
-      </span>
-      <span class="chevron" aria-hidden="true"></span>
+      <div class="entete"><span class="rang">{{ loop.index }}</span><span class="tag">{{ s.region }}</span><span class="badge">Nouveau</span></div>
+      <h2>{{ s.titre }}</h2>
+      <p class="tldr bref">{{ s.en_bref }}</p>
+      <div class="pied">
+        <span>{{ s.sources|length }} source{{ 's' if s.sources|length > 1 }}</span>
+        <span class="basculer"><span class="chevron" aria-hidden="true"></span></span>
+      </div>
     </summary>
     <div class="detail">
-      <ul class="points">{% for p in s.points %}<li>{{ p }}</li>{% endfor %}</ul>
+      {% if s.points %}<div class="sous-titre">Points clés</div>
+      <ul class="points">{% for p in s.points %}<li>{{ p }}</li>{% endfor %}</ul>{% endif %}
       {% if s.a_surveiller %}<p class="surveiller"><b>À surveiller</b>{{ s.a_surveiller }}</p>{% endif %}
       {% if s.sources %}
       <div class="sources">
@@ -177,8 +202,8 @@ main { max-width: 680px; margin: 0 auto; padding: 14px 16px 0; }
   {% endfor %}
   </div>
   {% if brief.signaux_faibles %}
-  <div class="signaux">
-    <div class="titre-bloc">Signaux faibles</div>
+  <div class="signaux carte">
+    <div class="sous-titre">Signaux faibles</div>
     <ul>{% for sig in brief.signaux_faibles %}<li>{{ sig }}</li>{% endfor %}</ul>
   </div>
   {% endif %}
@@ -201,13 +226,28 @@ main { max-width: 680px; margin: 0 auto; padding: 14px 16px 0; }
   </div>
   <div class="compteur"></div>
   <div class="liste">
-  {% for a in articles %}
-  <div class="art" data-regions="{{ a.regions|join('|') }}" data-type="{{ a.type_source }}" data-ts="{{ a.timestamp }}">
-    <div class="meta"><span class="src">{{ a.source }}</span>{% if a.type_source == 'analyse' %}<span class="analyse">Analyse</span>{% endif %}<span class="quand"></span></div>
+  {% for a in articles %}{% set court = a.resume|tldr %}
+  <article class="art carte" data-regions="{{ a.regions|join('|') }}" data-type="{{ a.type_source }}" data-ts="{{ a.timestamp }}">
+    <div class="meta">
+      <span class="ini" style="--h: {{ a.source|teinte }}" aria-hidden="true">{{ a.source[:1] }}</span>
+      <span class="src">{{ a.source }}</span>
+      {% if a.type_source == 'analyse' %}<span class="badge analyse">Analyse</span>{% endif %}
+      <span class="badge nouveau">Nouveau</span>
+      <span class="quand"></span>
+    </div>
     <h3><a href="{{ a.lien|lien_sur }}" target="_blank" rel="noopener">{{ a.titre }}</a></h3>
-    {% if a.resume %}<p>{{ a.resume }}</p>{% endif %}
-    {% for terme, d in a.termes_definis.items() %}<div class="def"><b>{{ terme }}</b> — {{ d }}</div>{% endfor %}
-  </div>
+    {% if court %}<p class="tldr">{{ court }}</p>{% endif %}
+    {% if a.resume != court or a.termes_definis %}
+    <div class="plus">
+      {% if a.resume != court %}<p class="complet">{{ a.resume }}</p>{% endif %}
+      {% for terme, d in a.termes_definis.items() %}<div class="def"><b>{{ terme }}</b> — {{ d }}</div>{% endfor %}
+    </div>
+    {% endif %}
+    <div class="pied">
+      <span class="tags">{% for r in a.regions %}<span>{{ r }}</span>{% endfor %}</span>
+      <a class="lire" href="{{ a.lien|lien_sur }}" target="_blank" rel="noopener">Lire →</a>
+    </div>
+  </article>
   {% endfor %}
   </div>
 </section>
@@ -331,6 +371,27 @@ def _lien_sur(url: str) -> str:
     return url if url.startswith(("https://", "http://")) else "#"
 
 
+_FIN_PHRASE = re.compile(r"(?<=[.!?…])\s+(?=[«\"“A-ZÀ-ÖØ-Þ0-9])")
+
+
+def _tldr(texte: str, max_car: int = 200) -> str:
+    """Version courte d'un résumé : les premières phrases entières tenant dans max_car, sinon une coupe sur un mot."""
+    texte = (texte or "").strip()
+    if len(texte) <= max_car:
+        return texte
+    court = ""
+    for phrase in _FIN_PHRASE.split(texte):
+        if len(court) + len(phrase) + 1 > max_car:
+            break
+        court = f"{court} {phrase}".strip()
+    return court or texte[:max_car].rsplit(" ", 1)[0].rstrip(" ,;:—-") + "…"
+
+
+def _teinte(nom: str) -> int:
+    """Teinte stable par source, pour la pastille de couleur des cartes."""
+    return zlib.crc32(nom.encode()) % 360
+
+
 JOURS = ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"]
 MOIS = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"]
 
@@ -338,6 +399,8 @@ MOIS = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août
 def construire_site(articles: list[Article], brief: dict | None, dossier: Path) -> Path:
     env = Environment(autoescape=True)
     env.filters["lien_sur"] = _lien_sur
+    env.filters["tldr"] = _tldr
+    env.filters["teinte"] = _teinte
     maintenant = datetime.now(PARIS)
     html = env.from_string(TEMPLATE).render(
         articles=articles,

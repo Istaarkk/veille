@@ -47,7 +47,7 @@ def test_brief_affiche(page, brief):
     s = sujets[0]
     assert s.select_one("summary h2").text == "Frappes massives sur Kiev"
     assert s.select_one("summary .bref").text == "La Russie a tiré 400 drones dans la nuit."
-    assert s.select_one("summary .kicker").text.startswith("Russie / Ukraine")
+    assert s.select_one("summary .tag").text == "Russie / Ukraine"
     assert [li.text for li in s.select(".points li")] == brief["sujets"][0]["points"]
     assert "Réunion de Ramstein" in s.select_one(".surveiller").text
     assert [li.text for li in p.select(".signaux li")] == brief["signaux_faibles"]
@@ -129,7 +129,75 @@ def test_definitions_du_glossaire(page):
 
 def test_article_sans_resume(page, articles):
     articles[0].resume = ""
-    assert not page(arts=articles).select_one(".art").select_one("p")
+    carte = page(arts=articles).select_one(".art")
+    assert not carte.select_one(".tldr") and not carte.select_one(".plus")
+
+
+# --- cartes ---
+
+def test_carte_de_sujet_titre_tldr_et_pied(page):
+    s = page().select_one("details.sujet.carte summary")
+    assert s.select_one(".rang").text == "1"
+    assert s.select_one(".tldr").text == "La Russie a tiré 400 drones dans la nuit."
+    assert s.select_one(".pied").text.split()[:2] == ["2", "sources"]
+
+
+def test_carte_d_article(page):
+    c = page().select("#fil .art.carte")[2]
+    assert c.select_one(".ini").text == "I" and "--h:" in c.select_one(".ini")["style"]
+    assert c.select_one("h3").text == "Le 49.3 en débat"
+    assert c.select_one(".tldr").text == "Analyse du recours au 49.3."
+    assert [t.text for t in c.select(".tags span")] == ["France"]
+    assert c.select_one(".lire")["href"] == "https://exemple.fr/a2"
+
+
+def test_resume_court_pas_de_doublon_dans_le_detail(page):
+    c = page().select_one("#fil .art")
+    assert c.select_one(".tldr") and not c.select_one(".complet")
+
+
+def test_resume_long_tldr_court_et_texte_complet_dans_le_detail(page, articles):
+    articles[0].resume = "Première phrase courte. " + "Suite très détaillée " * 20 + "."
+    c = page(arts=articles).select_one(".art")
+    assert c.select_one(".tldr").text == "Première phrase courte."
+    assert c.select_one(".plus .complet").text == articles[0].resume
+
+
+def test_teinte_stable_par_source():
+    from site_builder import _teinte
+    assert _teinte("Le Monde") == _teinte("Le Monde")
+    assert 0 <= _teinte("BBC World") < 360
+
+
+@pytest.mark.parametrize("texte, attendu", [
+    ("", ""),
+    (None, ""),
+    ("Court.", "Court."),
+    ("Une phrase. " * 5, "Une phrase. " * 5),  # sous la limite : inchangé (aux espaces près)
+])
+def test_tldr_textes_courts(texte, attendu):
+    from site_builder import _tldr
+    assert _tldr(texte) == (attendu or "").strip()
+
+
+def test_tldr_garde_des_phrases_entieres():
+    from site_builder import _tldr
+    texte = "Kiev a été frappée cette nuit. " + "Le bilan provisoire fait état de dizaines de blessés dans plusieurs quartiers. " * 4
+    court = _tldr(texte, max_car=120)
+    assert court == "Kiev a été frappée cette nuit. Le bilan provisoire fait état de dizaines de blessés dans plusieurs quartiers."
+    assert len(court) <= 120
+
+
+def test_tldr_ne_coupe_pas_sur_une_abreviation_ou_un_chiffre():
+    from site_builder import _tldr
+    texte = "Le PIB a progressé de 1.5 % selon l'Insee, un rythme inattendu. " + "x " * 150
+    assert _tldr(texte).startswith("Le PIB a progressé de 1.5 % selon")
+
+
+def test_tldr_premiere_phrase_trop_longue_coupee_sur_un_mot():
+    from site_builder import _tldr
+    court = _tldr("mot " * 100, max_car=50)
+    assert court.endswith("…") and len(court) <= 51 and not court[:-1].endswith(" ")
 
 
 # --- sécurité ---
