@@ -53,7 +53,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 header { position: sticky; top: 0; z-index: 10; background: color-mix(in srgb, var(--bg) 88%, transparent);
   -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); border-bottom: 1px solid var(--line);
   padding: calc(env(safe-area-inset-top) + 10px) 16px 0; }
-.barre { max-width: 680px; margin: 0 auto; }
+.barre { max-width: 1100px; margin: 0 auto; }
 .top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 h1 { font: 700 24px/1 var(--serif); letter-spacing: -0.02em; }
 h1 span { color: var(--accent); }
@@ -67,55 +67,67 @@ h1 span { color: var(--accent); }
 .pastille { background: var(--accent); color: #fff; font-size: 11px; font-weight: 700; border-radius: 999px; padding: 1px 7px; line-height: 1.5; }
 .pastille:empty { display: none; }
 
-main { max-width: 680px; margin: 0 auto; padding: 14px 16px 0; }
+main { max-width: 1100px; margin: 0 auto; padding: 14px 16px 0; }
 .vue { display: none; } .vue.on { display: block; }
 .vide { color: var(--muted); text-align: center; padding: 40px 0; }
 
-/* ---------- Cartes communes ---------- */
-.carte { background: var(--card); border: 1px solid var(--line); border-radius: 18px; box-shadow: var(--ombre); }
-.tldr { margin-top: 10px; background: var(--tldr); border-radius: 12px; padding: 9px 12px; font-size: 15px; line-height: 1.45; text-wrap: pretty; }
-.tldr::before { content: "TL;DR"; display: block; font-size: 10.5px; font-weight: 800; letter-spacing: 0.1em; color: var(--accent); margin-bottom: 1px; }
-.tag { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
-.badge { font-size: 11px; font-weight: 700; border-radius: 6px; padding: 1px 7px; background: var(--accent-bg); color: var(--accent); }
-.pied { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 10px; font-size: 13px; color: var(--muted); font-weight: 600; }
+/* ---------- Mosaïque ---------- */
+.mosaique { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; grid-auto-flow: dense; }
+@media (min-width: 330px) { .large { grid-column: span 2; } }
+@media (min-width: 720px) { .mosaique { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; } }
+.tuile { background: var(--card); border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--ombre); overflow: hidden;
+  display: flex; flex-direction: column; min-width: 0; cursor: pointer; }
+.tuile.ouvert, .tuile[open] { grid-column: 1 / -1; }
+.visuel { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; background: var(--chip); }
+.large .visuel, .ouvert .visuel, [open] .visuel { aspect-ratio: 16 / 9; }
+.visuel.vide { display: grid; place-items: center; color: rgb(255 255 255 / .9); font: 700 34px/1 var(--serif);
+  background: linear-gradient(135deg, hsl(var(--h) 42% 40%), hsl(calc(var(--h) + 35) 45% 55%)); }
+.large .visuel.vide { font-size: 48px; }
+.corps { padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 0; }
+.large .corps, .ouvert .corps, [open] .corps { padding: 12px 14px 14px; }
+.tag { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.badge { flex: none; font-size: 10.5px; font-weight: 700; border-radius: 6px; padding: 1px 6px; background: var(--accent-bg); color: var(--accent); }
+.tldr { background: var(--tldr); border-radius: 10px; padding: 7px 9px; font-size: 13px; line-height: 1.4; color: var(--soft); }
+.tldr .txt { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+.tldr::before { content: "TL;DR"; display: block; font-size: 10px; font-weight: 800; letter-spacing: 0.1em; color: var(--accent); }
+.large .tldr { font-size: 14.5px; padding: 9px 11px; }
+.large .tldr .txt { -webkit-line-clamp: 5; }
+.ouvert .tldr, [open] .tldr { font-size: 15px; }
+.ouvert .tldr .txt, [open] .tldr .txt { -webkit-line-clamp: unset; }
+.pied { display: flex; justify-content: space-between; align-items: center; gap: 6px; margin-top: auto; padding-top: 2px;
+  font-size: 12px; color: var(--muted); font-weight: 600; font-variant-numeric: tabular-nums; }
 
-/* ---------- Brief ---------- */
+/* ---------- À la une ---------- */
 .edition { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 12px; color: var(--muted);
   text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; }
 .lien-btn { background: none; border: 0; color: var(--muted); font-size: 12px; font-weight: 600; text-transform: uppercase;
   letter-spacing: 0.05em; padding: 8px 0 8px 12px; }
 .explication { font-size: 14px; color: var(--muted); margin: 2px 0 12px; }
-
-.sujets { display: grid; gap: 12px; }
-.sujet { overflow: hidden; }
-.sujet summary { list-style: none; display: block; padding: 14px 16px 12px; cursor: pointer; }
+.sujet summary { list-style: none; display: flex; flex-direction: column; flex: 1; }
 .sujet summary::-webkit-details-marker { display: none; }
-.entete { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; }
-.rang { flex: none; width: 24px; height: 24px; border-radius: 8px; background: var(--chip); color: var(--soft);
-  font: 700 13px/24px var(--sans); text-align: center; font-variant-numeric: tabular-nums; }
+.entete { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.rang { flex: none; width: 22px; height: 22px; border-radius: 7px; background: var(--chip); color: var(--soft);
+  font: 700 12px/22px var(--sans); text-align: center; font-variant-numeric: tabular-nums; }
 .sujet:nth-child(-n+3) .rang { background: var(--accent); color: #fff; }
 .sujet .badge { display: none; margin-left: auto; }
 .sujet.neuf-oui .badge { display: inline-block; }
-.sujet h2 { font: 700 19px/1.25 var(--serif); letter-spacing: -0.01em; text-wrap: balance; }
-.basculer { display: flex; align-items: center; gap: 6px; color: var(--ink); }
+.sujet h2 { font: 700 15.5px/1.25 var(--serif); letter-spacing: -0.01em; text-wrap: pretty;
+  display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical; overflow: hidden; }
+.sujet.large h2 { font-size: 20px; }
+.sujet[open] h2 { font-size: 21px; -webkit-line-clamp: unset; }
+.basculer { display: flex; align-items: center; gap: 5px; color: var(--ink); }
 .basculer::before { content: "Détails"; }
 .sujet[open] .basculer::before { content: "Réduire"; }
-.chevron { width: 7px; height: 7px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor;
+.chevron { width: 6px; height: 6px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor;
   transform: rotate(45deg) translateY(-2px); transition: transform .15s; }
 .sujet[open] .chevron { transform: rotate(-135deg) translateY(-1px); }
-.detail { padding: 12px 16px 16px; border-top: 1px solid var(--line); }
-.sous-titre { font-size: 11px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin-bottom: 2px; }
-.points li { list-style: none; position: relative; font-size: 15px; line-height: 1.45; padding: 4px 0 4px 14px; }
-.points li::before { content: ""; position: absolute; left: 0; top: 13px; width: 5px; height: 5px; border-radius: 50%; background: var(--accent); }
-.surveiller { margin-top: 10px; border-left: 3px solid var(--accent); padding: 2px 0 2px 10px; font-size: 14px; line-height: 1.45; }
-.surveiller b { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--accent); }
-.sources { margin-top: 12px; display: grid; gap: 6px; }
+.detail { padding: 12px 14px 14px; border-top: 1px solid var(--line); cursor: auto; }
+.sous-titre { font-size: 11px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+.sources { display: grid; gap: 6px; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
 .sources a { display: block; text-decoration: none; font-size: 14px; line-height: 1.35; padding: 8px 10px; border-radius: 10px; background: var(--chip); }
 .sources a b { display: block; font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
-
-.signaux { margin-top: 14px; padding: 14px 16px; }
-.signaux .sous-titre { margin-bottom: 8px; }
-.signaux .sources { margin-top: 0; }
+.signaux { margin-top: 14px; padding: 14px; cursor: auto; }
 
 /* ---------- Fil ---------- */
 .recherche { width: 100%; font: inherit; font-size: 16px; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--line);
@@ -125,27 +137,30 @@ main { max-width: 680px; margin: 0 auto; padding: 14px 16px 0; }
 .chip { flex: none; border: 0; background: var(--chip); border-radius: 999px; padding: 8px 14px; font-size: 13px; font-weight: 500; }
 .chip[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
 .compteur { font-size: 12px; color: var(--muted); padding: 2px 0 8px; font-variant-numeric: tabular-nums; }
-.liste { display: grid; gap: 10px; }
-.art { padding: 12px 14px; cursor: pointer; }
-.art .meta { display: flex; align-items: center; gap: 7px; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
-.ini { flex: none; width: 22px; height: 22px; border-radius: 7px; display: grid; place-items: center; color: #fff;
-  font-size: 11px; font-weight: 800; background: hsl(var(--h) 45% 42%); }
-.art .src { font-weight: 700; color: var(--soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.art .quand { margin-left: auto; white-space: nowrap; }
-.art .badge.nouveau { display: none; }
-.art.neuf-oui .badge.nouveau { display: inline-block; }
-.art h3 { font-size: 16.5px; font-weight: 650; line-height: 1.3; margin-top: 8px; text-wrap: pretty; }
+.art .meta { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); min-width: 0; }
+.ini { flex: none; width: 20px; height: 20px; border-radius: 6px; display: grid; place-items: center; color: #fff;
+  font-size: 10.5px; font-weight: 800; background: hsl(var(--h) 45% 42%); }
+.art .src { font-weight: 700; color: var(--soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.art .analyse { margin-left: auto; }
+.art h3 { font-size: 14.5px; font-weight: 650; line-height: 1.3; text-wrap: pretty;
+  display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical; overflow: hidden; }
+.art.large h3 { font-size: 17.5px; }
+.art.ouvert h3 { font-size: 18px; -webkit-line-clamp: unset; }
 .art h3 a { text-decoration: none; }
-.art .tldr { font-size: 14.5px; color: var(--soft); }
-.plus { display: none; margin-top: 8px; font-size: 14px; line-height: 1.45; color: var(--soft); }
+.quand::before { content: ""; display: none; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); margin-right: 5px; vertical-align: 1px; }
+.art.neuf-oui .quand::before { display: inline-block; }
+.art.neuf-oui .quand { color: var(--accent); }
+.plus { display: none; font-size: 14px; line-height: 1.45; color: var(--soft); }
 .art.ouvert .plus { display: block; }
 .def { margin-top: 6px; background: var(--def); border-radius: 8px; padding: 6px 10px; font-size: 13px; }
-.tags { display: flex; gap: 5px; flex-wrap: wrap; min-width: 0; }
+.tags { display: none; gap: 5px; flex-wrap: wrap; }
+.art.large .tags, .art.ouvert .tags { display: flex; }
 .tags span { font-size: 11px; font-weight: 600; background: var(--chip); color: var(--soft); border-radius: 6px; padding: 2px 7px; }
-.lire { flex: none; text-decoration: none; color: var(--accent); font-weight: 700; padding: 4px 0 4px 8px; }
-.compact .art:not(.ouvert) .tldr, .compact .art:not(.ouvert) .pied { display: none; }
-.deja { display: flex; align-items: center; gap: 10px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em;
-  color: var(--muted); padding: 6px 0; }
+.lire { flex: none; text-decoration: none; color: var(--accent); font-weight: 700; padding: 4px 0 4px 6px; }
+.compact .visuel, .compact .art:not(.ouvert) .tldr { display: none; }
+.compact .large { grid-column: auto; }
+.deja { grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; font-size: 11px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.07em; color: var(--muted); padding: 2px 0; }
 .deja::after { content: ""; flex: 1; height: 1px; background: var(--line); }
 </style>
 </head>
@@ -171,17 +186,21 @@ main { max-width: 680px; margin: 0 auto; padding: 14px 16px 0; }
     <button class="lien-btn" id="deplier">Tout déplier</button>
   </div>
   <p class="explication">Les événements couverts par le plus de rédactions ces dernières heures.</p>
-  <div class="sujets">
+  <div class="mosaique sujets">
   {% for s in une.sujets %}
-  <details class="sujet carte" data-ts="{{ s.ts }}">
+  <details class="sujet tuile{{ ' large' if loop.index0 % 3 == 0 or (loop.last and loop.index0 % 3 == 1) }}" data-ts="{{ s.ts }}">
     <summary>
-      <div class="entete"><span class="rang">{{ loop.index }}</span><span class="tag">{{ s.region }}</span><span class="badge">Nouveau</span></div>
-      <h2>{{ s.titre }}</h2>
-      {% set court = s.en_bref|tldr %}{% if court %}<p class="tldr bref">{{ court }}</p>{% endif %}
-      <div class="pied">
-        <span class="couverture">{{ s.sources|length }} sources</span>
-        <span class="basculer"><span class="chevron" aria-hidden="true"></span></span>
-      </div>
+      {% if s.image %}<img class="visuel" src="{{ s.image|lien_sur }}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">
+      {% else %}<span class="visuel vide" style="--h: {{ s.titre|teinte }}" aria-hidden="true">{{ loop.index }}</span>{% endif %}
+      <span class="corps">
+        <span class="entete"><span class="rang">{{ loop.index }}</span><span class="tag">{{ s.region }}</span><span class="badge">Nouveau</span></span>
+        <h2>{{ s.titre }}</h2>
+        {% set court = s.en_bref|tldr %}{% if court %}<span class="tldr bref"><span class="txt">{{ court }}</span></span>{% endif %}
+        <span class="pied">
+          <span class="couverture">{{ s.sources|length }} sources</span>
+          <span class="basculer"><span class="chevron" aria-hidden="true"></span></span>
+        </span>
+      </span>
     </summary>
     <div class="detail">
       <div class="sous-titre">Ce qu'en disent les médias</div>
@@ -193,7 +212,7 @@ main { max-width: 680px; margin: 0 auto; padding: 14px 16px 0; }
   {% endfor %}
   </div>
   {% if une.analyses %}
-  <div class="signaux carte">
+  <div class="signaux tuile">
     <div class="sous-titre">Analyses récentes</div>
     <div class="sources">
       {% for a in une.analyses %}<a href="{{ a.lien|lien_sur }}" target="_blank" rel="noopener"><b>{{ a.source }}</b>{{ a.titre }}</a>{% endfor %}
@@ -218,27 +237,30 @@ main { max-width: 680px; margin: 0 auto; padding: 14px 16px 0; }
     <button class="chip" id="compact" aria-pressed="false">Titres seuls</button>
   </div>
   <div class="compteur"></div>
-  <div class="liste">
+  <div class="mosaique liste">
   {% for a in articles %}{% set court = a.resume|tldr %}
-  <article class="art carte" data-regions="{{ a.regions|join('|') }}" data-type="{{ a.type_source }}" data-ts="{{ a.timestamp }}">
-    <div class="meta">
-      <span class="ini" style="--h: {{ a.source|teinte }}" aria-hidden="true">{{ a.source[:1] }}</span>
-      <span class="src">{{ a.source }}</span>
-      {% if a.type_source == 'analyse' %}<span class="badge analyse">Analyse</span>{% endif %}
-      <span class="badge nouveau">Nouveau</span>
-      <span class="quand"></span>
-    </div>
-    <h3><a href="{{ a.lien|lien_sur }}" target="_blank" rel="noopener">{{ a.titre }}</a></h3>
-    {% if court %}<p class="tldr">{{ court }}</p>{% endif %}
-    {% if a.resume != court or a.termes_definis %}
-    <div class="plus">
-      {% if a.resume != court %}<p class="complet">{{ a.resume }}</p>{% endif %}
-      {% for terme, d in a.termes_definis.items() %}<div class="def"><b>{{ terme }}</b> — {{ d }}</div>{% endfor %}
-    </div>
-    {% endif %}
-    <div class="pied">
-      <span class="tags">{% for r in a.regions %}<span>{{ r }}</span>{% endfor %}</span>
-      <a class="lire" href="{{ a.lien|lien_sur }}" target="_blank" rel="noopener">Lire →</a>
+  <article class="art tuile{{ ' large' if loop.index0 % 5 == 0 }}" data-regions="{{ a.regions|join('|') }}" data-type="{{ a.type_source }}" data-ts="{{ a.timestamp }}">
+    {% if a.image %}<img class="visuel" src="{{ a.image|lien_sur }}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">
+    {% else %}<span class="visuel vide" style="--h: {{ a.source|teinte }}" aria-hidden="true">{{ a.source[:1] }}</span>{% endif %}
+    <div class="corps">
+      <div class="meta">
+        <span class="ini" style="--h: {{ a.source|teinte }}" aria-hidden="true">{{ a.source[:1] }}</span>
+        <span class="src">{{ a.source }}</span>
+        {% if a.type_source == 'analyse' %}<span class="badge analyse">Analyse</span>{% endif %}
+      </div>
+      <h3><a href="{{ a.lien|lien_sur }}" target="_blank" rel="noopener">{{ a.titre }}</a></h3>
+      {% if court %}<p class="tldr"><span class="txt">{{ court }}</span></p>{% endif %}
+      {% if a.resume != court or a.termes_definis %}
+      <div class="plus">
+        {% if a.resume != court %}<p class="complet">{{ a.resume }}</p>{% endif %}
+        {% for terme, d in a.termes_definis.items() %}<div class="def"><b>{{ terme }}</b> — {{ d }}</div>{% endfor %}
+      </div>
+      {% endif %}
+      <div class="tags">{% for r in a.regions %}<span>{{ r }}</span>{% endfor %}</div>
+      <div class="pied">
+        <span class="quand"></span>
+        <a class="lire" href="{{ a.lien|lien_sur }}" target="_blank" rel="noopener">Lire →</a>
+      </div>
     </div>
   </article>
   {% endfor %}
@@ -285,10 +307,17 @@ main { max-width: 680px; margin: 0 auto; padding: 14px 16px 0; }
     const ts = +el.dataset.ts;
     $('.quand', el).textContent = age(ts);
     if (vu && ts > vu) { el.classList.add('neuf-oui'); neufs++; }
-    el.addEventListener('click', e => { if (!e.target.closest('a')) el.classList.toggle('ouvert'); });
+    el.addEventListener('click', e => {
+      if (e.target.closest('a')) return;
+      el.classList.toggle('ouvert');
+      requestAnimationFrame(() => el.scrollIntoView({ block: 'nearest', behavior: 'smooth' }));
+    });
   });
   if (neufs) $('.pastille').textContent = neufs;
-  $$('.sujet').forEach(s => { if (vu && +s.dataset.ts > vu) s.classList.add('neuf-oui'); });
+  $$('.sujet').forEach(s => {
+    if (vu && +s.dataset.ts > vu) s.classList.add('neuf-oui');
+    s.addEventListener('toggle', () => requestAnimationFrame(() => s.scrollIntoView({ block: 'nearest', behavior: 'smooth' })));
+  });
   let deja = null;
   if (neufs && neufs < arts.length) {
     deja = document.createElement('div');

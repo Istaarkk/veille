@@ -24,6 +24,7 @@ class Article:
     timestamp: int
     regions: list[str] = field(default_factory=list)
     termes_definis: dict[str, str] = field(default_factory=dict)
+    image: str = ""
 
 
 def nettoyer_html(texte: str) -> str:
@@ -33,9 +34,38 @@ def nettoyer_html(texte: str) -> str:
     return re.sub(r"\s+", " ", propre).strip()
 
 
+# Mot-clé en mot entier, avec les terminaisons courantes (russe → russes, palestin → palestinienne).
+# Sans ces bornes, « eu » trouvait l'Europe dans « peu » et « inde » l'Asie dans « indépendance ».
+_LETTRE = "a-z0-9àâäéèêëïîôöùûüÿçœæ"
+_MOTIFS_REGIONS = {
+    region: re.compile("|".join(
+        rf"(?<![{_LETTRE}]){re.escape(m.strip())}(?:s|e|es|ne|nes|ien|ienne|iens|iennes)?(?![{_LETTRE}])" for m in mots))
+    for region, mots in REGIONS.items()
+}
+
+
 def detecter_regions(texte: str) -> list[str]:
-    t = f" {texte.lower()} "
-    return [region for region, mots in REGIONS.items() if any(m in t for m in mots)]
+    t = texte.lower()
+    return [region for region, motif in _MOTIFS_REGIONS.items() if motif.search(t)]
+
+
+def extraire_image(e: dict) -> str:
+    """URL https de l'illustration d'une entrée RSS, ou chaîne vide."""
+    candidats = [m.get("url") for m in e.get("media_content", []) + e.get("media_thumbnail", [])]
+    candidats += [l.get("href") for l in e.get("links", []) + e.get("enclosures", [])
+                  if (l.get("type") or "").startswith("image")]
+    html = e.get("summary", "") + "".join(c.get("value", "") for c in e.get("content", []))
+    candidats += re.findall(r'<img[^>]+src="([^"]+)"', html)
+    for url in candidats:
+        if not url:
+            continue
+        url = unescape(url.strip())
+        if url.startswith("http://"):
+            url = "https://" + url[7:]  # la page est en https : une image http serait bloquée
+        if url.startswith("https://"):
+            # La BBC sert des vignettes de 240 px : on demande la taille au-dessus pour les grandes tuiles.
+            return url.replace("/ace/standard/240/", "/ace/standard/480/")
+    return ""
 
 
 def _cle_dedup(titre: str) -> str:
@@ -87,6 +117,7 @@ def scraper_sources() -> list[Article]:
                 timestamp=ts,
                 regions=detecter_regions(texte),
                 termes_definis=trouver_termes(texte),
+                image=extraire_image(e),
             ))
             retenus += 1
         print(f"  {source['nom']} : {retenus}")

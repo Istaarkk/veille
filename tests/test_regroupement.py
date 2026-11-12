@@ -161,3 +161,11 @@ def test_un_direct_reste_choisi_s_il_n_y_a_que_ca():
     une = a_la_une([art(0, "EN DIRECT : sommet OTAN Vilnius", "Le Monde", "Suivez."),
                     art(1, "NATO summit Vilnius live", "DW", "Live.")])
     assert une["sujets"][0]["titre"] == "EN DIRECT : sommet OTAN Vilnius"
+
+
+def test_image_du_sujet_prise_sur_le_premier_article_illustre():
+    a, b = art(0, "Sommet OTAN Vilnius", "Le Monde", "Résumé."), art(1, "NATO summit Vilnius", "DW", "Summary.")
+    b.image = "https://img.test/dw.jpg"
+    assert a_la_une([a, b])["sujets"][0]["image"] == "https://img.test/dw.jpg"
+    b.image = ""
+    assert a_la_une([a, b])["sujets"][0]["image"] == ""

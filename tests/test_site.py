@@ -139,13 +139,52 @@ def test_article_sans_resume(page, articles):
 
 # --- cartes ---
 
-def test_carte_d_article(page):
-    c = page().select("#fil .art.carte")[2]
+def test_tuile_d_article(page):
+    c = page().select("#fil .art.tuile")[2]
     assert c.select_one(".ini").text == "I" and "--h:" in c.select_one(".ini")["style"]
     assert c.select_one("h3").text == "Le 49.3 en débat"
     assert c.select_one(".tldr").text == "Analyse du recours au 49.3."
     assert [t.text for t in c.select(".tags span")] == ["France"]
     assert c.select_one(".lire")["href"] == "https://exemple.fr/a2"
+
+
+# --- mosaïque ---
+
+def test_fil_en_mosaique_avec_une_grande_tuile_sur_cinq(page, articles):
+    arts = [Article(id=f"a{i}", titre=f"T{i}", resume="R", lien=f"https://x.test/{i}", source="S",
+                    type_source="presse", timestamp=1_800_000_000 - i) for i in range(11)]
+    p = page(arts=arts)
+    assert p.select_one("#fil .mosaique")
+    assert [i for i, a in enumerate(p.select("#fil .art")) if "large" in a["class"]] == [0, 5, 10]
+
+
+@pytest.mark.parametrize("n, larges", [
+    (1, [0]), (2, [0, 1]), (3, [0]), (4, [0, 3]), (5, [0, 3, 4]), (8, [0, 3, 6, 7]),
+])
+def test_une_en_mosaique_sans_trou_en_fin_de_grille(page, une, n, larges):
+    une["sujets"] = [dict(une["sujets"][0], titre=f"S{i}") for i in range(n)]
+    tuiles = page(b=une).select("#une .mosaique .sujet")
+    assert [i for i, t in enumerate(tuiles) if "large" in t["class"]] == larges
+
+
+def test_image_de_l_article(page, articles):
+    articles[0].image = "https://img.test/a.jpg"
+    c = page(arts=articles).select("#fil .art")
+    img = c[0].select_one("img.visuel")
+    assert img["src"] == "https://img.test/a.jpg" and img["loading"] == "lazy" and img["alt"] == ""
+    assert not c[1].select_one("img") and c[1].select_one(".visuel.vide")
+
+
+def test_image_du_sujet(page, une):
+    une["sujets"][0]["image"] = "https://img.test/s.jpg"
+    assert page(b=une).select_one(".sujet img.visuel")["src"] == "https://img.test/s.jpg"
+    une["sujets"][0]["image"] = ""
+    assert page(b=une).select_one(".sujet .visuel.vide")
+
+
+def test_image_dangereuse_neutralisee(page, articles):
+    articles[0].image = "javascript:alert(1)"
+    assert page(arts=articles).select_one(".art img")["src"] == "#"
 
 
 def test_resume_court_pas_de_doublon_dans_le_detail(page):

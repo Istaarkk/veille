@@ -4,7 +4,7 @@ import time
 import pytest
 
 import scraper
-from scraper import _cle_dedup, detecter_regions, nettoyer_html, scraper_sources
+from scraper import _cle_dedup, detecter_regions, extraire_image, nettoyer_html, scraper_sources
 
 
 def _entree(titre, age_h=1.0, resume="Résumé.", lien="https://exemple.fr/x", date=True):
@@ -57,6 +57,27 @@ def test_detecter_regions(texte, attendues):
 
 def test_detecter_regions_insensible_a_la_casse():
     assert detecter_regions("UKRAINE") == detecter_regions("ukraine") == ["Russie / Ukraine"]
+
+
+@pytest.mark.parametrize("texte, absente", [
+    ("Il y a peu de temps, au lieu du jeu", "Europe"),
+    ("La fête de l'indépendance", "Asie-Pacifique"),
+    ("Une rue de la ville", "Europe"),
+    ("Le parisianisme", "France"),
+])
+def test_detecter_regions_pas_de_faux_positif_dans_un_mot(texte, absente):
+    assert absente not in detecter_regions(texte)
+
+
+@pytest.mark.parametrize("texte, region", [
+    ("Les Russes avancent", "Russie / Ukraine"),
+    ("Des civils palestiniens tués", "Moyen-Orient"),
+    ("La diplomatie chinoise", "Asie-Pacifique"),
+    ("Sommet de l'UE à Bruxelles", "Europe"),
+    ("Le président américain", "Amériques"),
+])
+def test_detecter_regions_formes_flechies(texte, region):
+    assert region in detecter_regions(texte)
 
 
 def test_detecter_regions_uk_en_mot_entier():
@@ -167,3 +188,32 @@ def test_recuperer_parse_un_flux_rss(monkeypatch):
     monkeypatch.setattr(scraper.requests, "get", lambda *a, **k: Rep())
     _, entrees = scraper._recuperer({"nom": "A", "url": "https://x.test", "type": "presse"})
     assert entrees[0]["title"] == "Un titre" and entrees[0]["published_parsed"].tm_year == 2026
+
+
+# --- images ---
+
+@pytest.mark.parametrize("entree, attendu", [
+    ({"media_content": [{"url": "https://img.test/a.jpg"}]}, "https://img.test/a.jpg"),
+    ({"media_thumbnail": [{"url": "https://img.test/t.jpg"}]}, "https://img.test/t.jpg"),
+    ({"enclosures": [{"type": "image/jpeg", "href": "https://img.test/e.jpg"}]}, "https://img.test/e.jpg"),
+    ({"links": [{"type": "text/html", "href": "https://x.test"}, {"type": "image/png", "href": "https://img.test/l.png"}]},
+     "https://img.test/l.png"),
+    ({"summary": '<p><img class="x" src="https://img.test/s.jpg?a=1&amp;b=2"> texte</p>'}, "https://img.test/s.jpg?a=1&b=2"),
+    ({"content": [{"value": '<img src="https://img.test/c.jpg">'}]}, "https://img.test/c.jpg"),
+    ({"media_content": [{"url": "http://img.test/a.jpg"}]}, "https://img.test/a.jpg"),
+    ({"media_content": [{"url": "data:image/png;base64,xx"}, {"url": "https://img.test/b.jpg"}]}, "https://img.test/b.jpg"),
+    ({"enclosures": [{"type": "audio/mpeg", "href": "https://x.test/a.mp3"}]}, ""),
+    ({}, ""),
+])
+def test_extraire_image(entree, attendu):
+    assert extraire_image(entree) == attendu
+
+
+def test_vignette_bbc_agrandie():
+    e = {"media_thumbnail": [{"url": "https://ichef.bbci.co.uk/ace/standard/240/cpsprodpb/x.jpg"}]}
+    assert extraire_image(e) == "https://ichef.bbci.co.uk/ace/standard/480/cpsprodpb/x.jpg"
+
+
+def test_image_renseignee_par_le_scraper(flux):
+    flux({"A": [dict(_entree("Avec image"), media_content=[{"url": "https://img.test/a.jpg"}]), _entree("Sans")]})
+    assert {a.titre: a.image for a in scraper_sources()} == {"Avec image": "https://img.test/a.jpg", "Sans": ""}

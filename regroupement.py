@@ -184,6 +184,7 @@ def a_la_une(articles: list[Article], max_sujets: int = MAX_SUJETS) -> dict | No
             "region": regions.most_common(1)[0][0] if regions else "Monde",
             "en_bref": rep.resume,
             "sources": sources,
+            "image": next((a.image for a in [rep] + groupe if a.image), ""),
             "ts": ts,
             "_score": (redactions, len(groupe), ts),
         })
